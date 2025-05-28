@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador Game Arcade Final</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: url('background.jpg'); /* Altere 'background.jpg' para o nome do seu arquivo */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #282c34;
+            font-family: 'Orbitron', sans-serif;
+            color: #61dafb;
+            overflow: hidden;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            border-radius: 20px;
+            background-color: rgba(26, 30, 36, 0.9);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+            position: relative; /* Necessário para posicionar o botão START */
+        }
+
+        #timer-display {
+            font-size: 22em; /* Números maiores */
+            font-weight: bold;
+            letter-spacing: 12px;
+            margin-bottom: 20px;
+            background-color: #000;
+            padding: 20px 80px;
+            border-radius: 15px;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+            min-width: 800px;
+            text-align: center;
+            color: #ff0000; /* Cor padrão dos dígitos: VERMELHO */
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.9);
+            border: 2px solid #333;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        #message-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ccc;
+            margin-top: -10px;
+            min-height: 2.5em;
+            text-align: center;
+            text-shadow: 0 0 7px rgba(255, 255, 255, 0.6);
+        }
+
+        #credit-display {
+            font-size: 2.2em;
+            color: #fdd835;
+            margin-top: 25px;
+            text-shadow: 0 0 10px rgba(253, 216, 53, 0.9);
+            font-weight: bold;
+        }
+
+        /* Novo botão START redondo */
+        #start-button-round {
+            position: absolute; /* Posicionamento absoluto dentro do game-container */
+            bottom: 20px; /* Distância da parte inferior */
+            right: 20px; /* Distância da parte direita */
+            width: 80px; /* Tamanho do botão */
+            height: 80px;
+            border-radius: 50%; /* Faz ser redondo */
+            background-color: #007bff; /* Cor azul clássica de botão START */
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8em;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border: 4px solid #0056b3; /* Borda mais escura */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5); /* Sombra para dar profundidade */
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+            opacity: 0.5; /* Inicia um pouco transparente, indicando que está desabilitado */
+            pointer-events: none; /* Desabilita cliques quando sem crédito */
+        }
+
+        #start-button-round:hover:not(.disabled) {
+            background-color: #0056b3; /* Cor mais escura ao passar o mouse */
+            transform: translateY(-2px); /* Pequeno efeito de levantamento */
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.6);
+        }
+
+        #start-button-round.enabled {
+            opacity: 1; /* Totalmente visível quando habilitado */
+            pointer-events: auto; /* Habilita cliques */
+            background-color: #007bff; /* Garante a cor normal quando habilitado */
+        }
+        
+        #start-button-round.disabled {
+            background-color: #555; /* Cinza escuro quando desabilitado */
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none;
+        }
+
+        /* Removido o círculo de conexão, então não há CSS para ele aqui */
+        .button-container { /* Mantém os outros botões escondidos */
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="timer-display">00000</div>
+        <div id="message-display">ADICIONE CRÉDITOS</div>
+        <div id="credit-display">CRÉDITOS: 0</div>
+        
+        <div id="start-button-round" class="disabled">START</div>
+    </div>
+
+    <audio id="audioCoin" src="coin.mp3" preload="auto"></audio>
+    <audio id="audioTick" src="tick.mp3" preload="auto"></audio>
+    <audio id="audioGo" src="go.mp3" preload="auto"></audio>
+    <audio id="audioWin" src="win.mp3" preload="auto"></audio>
+    <audio id="audioLose" src="lose.mp3" preload="auto"></audio>
+
+    <script>
+        const timerDisplay = document.getElementById('timer-display');
+        const messageDisplay = document.getElementById('message-display');
+        const creditDisplay = document.getElementById('credit-display');
+        const startButtonRound = document.getElementById('start-button-round'); // Referência ao botão START
+
+        // Áudios
+        const audioCoin = document.getElementById('audioCoin');
+        const audioTick = document.getElementById('audioTick');
+        const audioGo = document.getElementById('audioGo'); 
+        const audioWin = document.getElementById('audioWin');
+        const audioLose = document.getElementById('audioLose');
+
+        let countdown;
+        let preGameCountdown;
+        let currentTime = 0;
+        const targetTime = 15000;
+        const winningTime = 10000;
+        const intervalSpeed = 0.5; // 0.5 milissegundos para dificuldade extrema
+        let credits = 0;
+        let isCounting = false;
+        let gameEnded = false;
+        const loseDisplayTime = 3000; // Tempo em milissegundos para mostrar o resultado (3 segundos)
+        const winDisplayTime = 25000; // Tempo em milissegundos para mostrar o resultado (25 segundos)
+
+        // As variáveis e funções relacionadas ao Arduino (serialPort, writer, connectSerial, sendSerialData, updateConnectionCircle)
+        // foram removidas, pois não há comunicação serial nesta versão.
+
+        // --- Funções de Utilitário ---
+
+        function formatTime(number) {
+            return number.toString().padStart(5, '0');
+        }
+
+        function updateDisplay(value, color = '#ff0000') {
+            timerDisplay.textContent = value;
+            timerDisplay.style.color = color;
+            timerDisplay.style.textShadow = `0 0 20px ${color === '#ff0000' ? 'rgba(255, 0, 0, 0.9)' : `rgba(${parseInt(color.slice(1,3),16)}, ${parseInt(color.slice(3,5),16)}, ${parseInt(color.slice(5,7),16)}, 0.9)`}`;
+        }
+
+        function showMessage(msg, color = '#ccc') {
+            messageDisplay.textContent = msg;
+            messageDisplay.style.color = color;
+        }
+
+        function updateCreditDisplay() {
+            creditDisplay.textContent = `CRÉDITOS: ${credits}`;
+            localStorage.setItem('gameCredits', credits); // Salva os créditos
+            updateStartButtonState(); // Atualiza o estado do botão START sempre que créditos mudam
+        }
+
+        function loadCredits() {
+            const savedCredits = localStorage.getItem('gameCredits');
+            credits = savedCredits ? parseInt(savedCredits) : 0;
+            updateCreditDisplay();
+        }
+
+        function playSound(audioElement) {
+            audioElement.currentTime = 0; // Reinicia o áudio se já estiver tocando
+            audioElement.play().catch(e => console.error("Erro ao tocar áudio:", e));
+        }
+
+        // --- Funções de Controle do Botão START ---
+
+        function updateStartButtonState() {
+            if (credits > 0 && !isCounting && !gameEnded) {
+                startButtonRound.classList.remove('disabled');
+                startButtonRound.classList.add('enabled');
+            } else {
+                startButtonRound.classList.remove('enabled');
+                startButtonRound.classList.add('disabled');
+            }
+        }
+
+        // --- Funções de Ação do Jogo ---
+
+        function giveCredit() {
+            if (!isCounting && !gameEnded) {
+                credits++;
+                updateCreditDisplay(); // Isso chamará updateStartButtonState()
+                showMessage("CRÉDITO ADICIONADO! PRESSIONE 'START'", '#4CAF50'); // Mensagem atualizada
+                updateDisplay(formatTime(currentTime));
+                playSound(audioCoin);
+                // sendSerialData('C' + credits); // Removido: sem Arduino
+            } else if (gameEnded) {
+                showMessage("JOGO FINALIZADO! Aguarde o reinício automático.", '#ff9800');
+            } else if (isCounting) {
+                showMessage("JÁ ESTÁ CONTANDO! Pressione 'B' para parar.", '#ff9800');
+            }
+        }
+
+        function startPreGameCountdown() {
+            // Só inicia se o botão START (visual ou tecla 'B') estiver "habilitado"
+            if (startButtonRound.classList.contains('enabled')) { 
+                isCounting = true;
+                credits--;
+                updateCreditDisplay(); // Isso chamará updateStartButtonState() e o desabilitará
+                showMessage("PREPARAR...", '#ff0000');
+                updateDisplay(3, '#ff0000');
+                playSound(audioTick);
+                // sendSerialData('S'); // Removido: sem Arduino
+
+                preGameCountdown = setInterval(() => {
+                    let count = parseInt(timerDisplay.textContent);
+                    count--;
+                    if (count > 0) {
+                        updateDisplay(count, '#ff0000');
+                        playSound(audioTick);
+                    } else if (count === 0) {
+                        updateDisplay("GO!", '#ff0000');
+                        playSound(audioGo);
+                    } else {
+                        clearInterval(preGameCountdown);
+                        showMessage("");
+                        startMainTimer();
+                    }
+                }, 1000);
+            } else if (credits === 0 && !isCounting) {
+                showMessage("ADICIONE CRÉDITOS", '#ff9800');
+            }
+        }
+
+        function startMainTimer() {
+            clearInterval(countdown);
+            isCounting = true;
+            gameEnded = false;
+            updateDisplay(formatTime(currentTime));
+
+            countdown = setInterval(() => {
+                currentTime++;
+                updateDisplay(formatTime(currentTime));
+
+                if (currentTime > targetTime) {
+                    clearInterval(countdown);
+                    isCounting = false;
+                    gameEnded = true;
+                    handleGameEnd(false);
+                }
+            }, intervalSpeed);
+        }
+
+        function stopTimer() {
+            if (isCounting) { // Se o jogo está contando, 'B' para
+                clearInterval(countdown);
+                clearInterval(preGameCountdown);
+                isCounting = false;
+                gameEnded = true;
+
+                if (currentTime === winningTime) {
+                    handleGameEnd(true);
+                } else {
+                    handleGameEnd(false);
+                }
+            }
+        }
+
+        function handleGameEnd(isWinner) {
+            if (isWinner) {
+                showMessage("VOCÊ GANHOU! AGUARDE SEU PRÊMIO.", '#00e676');
+                updateDisplay(formatTime(winningTime), '#00e676');
+                playSound(audioWin);
+                // sendSerialData('W'); // Removido: sem Arduino
+                setTimeout(() => {
+                    resetAndPrepareNewGame();
+                }, winDisplayTime);
+            } else {
+                showMessage("VOCÊ PERDEU...", '#e03c3e');
+                updateDisplay(formatTime(currentTime), '#e03c3e');
+                playSound(audioLose);
+                // sendSerialData('L'); // Removido: sem Arduino
+                setTimeout(() => {
+                    updateDisplay("     ", '#e03c3e');
+                    setTimeout(() => {
+                        resetAndPrepareNewGame();
+                    }, 1000);
+                }, loseDisplayTime);
+            }
+        }
+
+        function resetAndPrepareNewGame() {
+            clearInterval(countdown);
+            clearInterval(preGameCountdown);
+            currentTime = 0;
+            isCounting = false;
+            gameEnded = false;
+            updateDisplay(formatTime(currentTime));
+            showMessage("ADICIONE CRÉDITOS", '#ccc');
+            // sendSerialData('R'); // Removido: sem Arduino
+            updateStartButtonState();
+        }
+
+        // --- Eventos de Teclado ---
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'p' || event.key === 'P') {
+                giveCredit();
+            } else if (event.key === 'b' || event.key === 'B') {
+                if (isCounting) { // Se o jogo está rolando, 'B' é para PARAR
+                    stopTimer();
+                } else { // Se o jogo NÃO está rolando, 'B' é para START
+                    startPreGameCountdown();
+                }
+            }
+            // A tecla 'Enter' não faz nada por padrão agora.
+            // A tecla 'Escape' continua desabilitada para o ciclo automático.
+        });
+
+        // Evento de clique no botão START visual
+        startButtonRound.addEventListener('click', startPreGameCountdown);
+
+        // --- Inicialização ---
+        loadCredits();
+        resetAndPrepareNewGame();
+        // Não há chamada para connectSerial(true); nesta versão
+    </script>
+</body>
+</html>
